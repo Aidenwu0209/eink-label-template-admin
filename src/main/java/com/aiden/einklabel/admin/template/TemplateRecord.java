@@ -1,12 +1,16 @@
 package com.aiden.einklabel.admin.template;
 
+import com.aiden.einklabel.admin.org.OrganizationScoped;
+import com.aiden.einklabel.admin.org.OrganizationScopedDataProxy;
 import com.aiden.einklabel.admin.template.operation.OpenTemplateEditorOperation;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -21,8 +25,10 @@ import xyz.erupt.annotation.sub_field.Readonly;
 import xyz.erupt.annotation.sub_field.View;
 import xyz.erupt.annotation.sub_field.sub_edit.ChoiceType;
 import xyz.erupt.annotation.sub_field.sub_edit.NumberType;
+import xyz.erupt.annotation.sub_field.sub_edit.ReferenceTreeType;
 import xyz.erupt.annotation.sub_field.sub_edit.Search;
 import xyz.erupt.annotation.sub_field.sub_edit.VL;
+import xyz.erupt.upms.model.EruptOrg;
 
 @Entity
 @Table(name = "esl_template")
@@ -30,6 +36,7 @@ import xyz.erupt.annotation.sub_field.sub_edit.VL;
         name = "模板管理",
         power = @Power(export = true),
         orderBy = "TemplateRecord.updateTime desc",
+        dataProxy = OrganizationScopedDataProxy.class,
         rowOperation = @RowOperation(
                 code = "open_editor",
                 title = "编辑模板",
@@ -39,7 +46,7 @@ import xyz.erupt.annotation.sub_field.sub_edit.VL;
                 operationHandler = OpenTemplateEditorOperation.class
         )
 )
-public class TemplateRecord {
+public class TemplateRecord implements OrganizationScoped {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,12 +56,33 @@ public class TemplateRecord {
     )
     private Long id;
 
+    @ManyToOne
+    @JoinColumn(name = "organization_id")
+    @EruptField(
+            views = @View(title = "组织", column = "name", sortable = true, width = "140px"),
+            edit = @Edit(
+                    title = "组织",
+                    notNull = true,
+                    search = @Search,
+                    type = EditType.REFERENCE_TREE,
+                    referenceTreeType = @ReferenceTreeType(pid = "parentOrg.id")
+            )
+    )
+    private EruptOrg organization;
+
     @Column(nullable = false, length = 120)
     @EruptField(
             views = @View(title = "模板名称", sortable = true),
             edit = @Edit(title = "模板名称", notNull = true, search = @Search(vague = true))
     )
     private String name;
+
+    @Column(name = "device_template_code", length = 80)
+    @EruptField(
+            views = @View(title = "设备模板编码", sortable = true, width = "140px"),
+            edit = @Edit(title = "设备模板编码", desc = "用于 MQTT wtag.tmpl；为空时使用模板名称")
+    )
+    private String deviceTemplateCode;
 
     @Column(nullable = false, length = 12)
     @EruptField(
@@ -163,12 +191,30 @@ public class TemplateRecord {
         this.id = id;
     }
 
+    @Override
+    public EruptOrg getOrganization() {
+        return organization;
+    }
+
+    @Override
+    public void setOrganization(EruptOrg organization) {
+        this.organization = organization;
+    }
+
     public String getName() {
         return name;
     }
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDeviceTemplateCode() {
+        return deviceTemplateCode;
+    }
+
+    public void setDeviceTemplateCode(String deviceTemplateCode) {
+        this.deviceTemplateCode = deviceTemplateCode;
     }
 
     public String getColorMode() {
