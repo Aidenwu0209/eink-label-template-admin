@@ -1,0 +1,51 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: eink-label-template-admin
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:file:./data/eink-label-admin;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;NON_KEYWORDS=VALUE
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+erupt-app:
+  water-mark: false
+  locales:
+    - zh-CN
+    - en-US
+
+erupt:
+  upms:
+    default-account: erupt
+    default-password: erupt
+
+template-editor:
+  base-url: ${TEMPLATE_EDITOR_BASE_URL:http://127.0.0.1:5173/}
+  api-base-url: ${TEMPLATE_EDITOR_API_BASE_URL:http://127.0.0.1:8080/api}
+  save-api-url: ${TEMPLATE_EDITOR_SAVE_API_URL:http://127.0.0.1:8080/api/template/save}
+  locale: ${TEMPLATE_EDITOR_LOCALE:zh-CN}
+  market: ${TEMPLATE_EDITOR_MARKET:CN}
+  save-export-mode: ${TEMPLATE_EDITOR_SAVE_EXPORT_MODE:fabric-json}
+  allowed-origins:
+    - http://127.0.0.1:5173
+    - http://localhost:5173
+    - http://127.0.0.1:5174
+    - http://localhost:5174
+    - http://127.0.0.1:4173
+    - http://localhost:4173

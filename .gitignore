@@ -1,0 +1,7 @@
+.DS_Store
+target/
+data/
+.erupt/
+.mvn/apache-maven-*/
+.mvn/*.tar.gz
+*.log
