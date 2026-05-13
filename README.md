@@ -1,45 +1,184 @@
-# 电子价签模板后台
+# E-Ink Label Template Admin
 
-这是 `eink-label-template-editor` 的 Erupt 后端管理项目，提供模板元信息管理、模板编辑器跳转链接、模板读取和保存 API，并集成店铺、商品、AP、电子价签的后台管理。
+`eink-label-template-admin` 是电子价签产品线的后台管理系统。它基于 Spring Boot + Erupt，负责门店、商品、AP、电子价签、模板等业务数据管理，并把真实下发动作提交给 `esl-panpan-task-producer`。
 
-## 本地启动
+本仓库同时承担模板编辑器的后端保存/读取接口，是 `eink-label-template-editor` 的宿主后台。
+
+## 职责边界
+
+本服务负责：
+
+- 提供 Erupt 后台页面和权限菜单。
+- 管理门店、商品、AP、电子价签、模板。
+- 从模板管理表打开前端模板编辑器。
+- 提供模板读取、编辑器 URL 生成、模板保存 API。
+- 提供 MQTT payload 预览接口，便于协议调试。
+- 提供真实任务下发入口，调用 `esl-panpan-task-producer`。
+- 刷新 producer 任务状态并回写后台业务记录。
+- 提供本地演示数据，方便第一次启动后直接测试。
+
+本服务不负责：
+
+- RabbitMQ 命令队列。
+- 攀攀 MQTT topic/payload 的最终协议执行。
+- AP/ESL ACK 和 report 解析。
+- 前端模板画布编辑能力。
+
+## 系统位置
+
+```mermaid
+flowchart LR
+  Admin["Erupt 后台\n本仓库"] -->|打开编辑器| Editor["eink-label-template-editor"]
+  Editor -->|保存模板 JSON/静态图/动态字段| Admin
+  Admin -->|提交任务 HTTP API| Producer["esl-panpan-task-producer"]
+  Producer -->|RabbitMQ| Consumer["esl-panpan-protocol-consumer"]
+  Consumer -->|MQTT| AP["AP / 电子价签"]
+  Admin -->|刷新任务状态| Producer
+```
+
+## 技术栈
+
+| 分类 | 技术 |
+| --- | --- |
+| Runtime | Java 21 |
+| Framework | Spring Boot 3.5.x |
+| Admin UI | Erupt 1.14.2 |
+| Database | H2 file database |
+| ORM | Spring Data JPA / Hibernate |
+| HTTP Client | Spring `RestClient` |
+| Tests | JUnit 5, Spring Boot Test, Mockito |
+| Build | Maven Wrapper |
+
+## 快速启动
 
 ```bash
+cd /path/to/eink-label-template-admin
 ./mvnw spring-boot:run
 ```
 
-启动后访问：
+默认访问地址：
 
 ```plain
 http://127.0.0.1:8080/
 ```
 
-默认 Erupt 登录账号：
+如果与 producer 或其他本地服务冲突，四仓联调推荐使用 `10880`：
+
+```bash
+SERVER_PORT=10880 \
+TASK_PRODUCER_BASE_URL=http://127.0.0.1:18080 \
+TEMPLATE_EDITOR_BASE_URL=http://127.0.0.1:5173/ \
+./mvnw spring-boot:run
+```
+
+默认登录账号：
 
 ```plain
 账号：erupt
 密码：erupt
 ```
 
-## 后台业务管理
+## 本地数据
 
-后台菜单统一在 `价签运营` 下：
+后台使用本地 H2 文件数据库：
 
-- `店铺管理`：维护门店代码、门店 ID、门店名称和所属组织。门店代码对应 MQTT 协议里的 `shopcode/shop`。
-- `商品管理`：维护商品编码、商品名称、价格、促销价、二维码等字段，并通过 `绑定已有模板` 字段选择模板。商品下发到价签时会把商品字段映射到 `GOODS_NAME`、`GOODS_CODE`、`F_1`、`F_20`、`QRCODE` 等协议字段。
-- `AP管理`：维护 AP 编码、店内 AP 编号、运行信息，并绑定店铺。行操作 `门店配置数据` 会生成协议里的 `esl/server/mgr/{ap}` + `shopcode` 配置数据。
-- `电子价签管理`：维护价签十进制 ID、型号、电量、信号、协议状态，并通过 `绑定商品` 字段把电子价签和商品绑定。行操作 `商品下发数据` 会生成协议里的 `esl/server/data/{shop}` + `wtag` 下发数据。
-- `模板管理`：维护模板尺寸、色彩模式、编辑器数据和 `设备模板编码`。`设备模板编码` 用作 MQTT `wtag.tmpl`，为空时使用模板名称。
+```plain
+./data/eink-label-admin.mv.db
+```
 
-组织隔离规则：
+H2 Console：
 
-- 业务数据都绑定 Erupt 组织。
-- 非管理员只能看到同组织数据，新增或更新时自动绑定当前登录用户的组织。
-- AP、商品、电子价签必须绑定同组织店铺；电子价签绑定商品时要求两者属于同一店铺。
+```plain
+http://127.0.0.1:8080/h2-console
+```
 
-## MQTT 数据接口
+连接信息：
 
-这些接口需要 Erupt 登录态：
+| 字段 | 值 |
+| --- | --- |
+| JDBC URL | `jdbc:h2:file:./data/eink-label-admin;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;NON_KEYWORDS=VALUE` |
+| User | `sa` |
+| Password | 空 |
+
+`NON_KEYWORDS=VALUE` 是必要配置，用于避免 H2 把 `VALUE` 当关键字导致 Erupt 表结构创建失败。
+
+## 配置项
+
+| 配置 | 默认值 | 说明 |
+| --- | --- | --- |
+| `SERVER_PORT` | `8080` | 后台 HTTP 端口，四仓联调推荐 `10880` |
+| `TEMPLATE_EDITOR_BASE_URL` | `http://127.0.0.1:5173/` | 前端编辑器地址 |
+| `TEMPLATE_EDITOR_API_BASE_URL` | `http://127.0.0.1:8080/api` | 传给编辑器的后端 API 根地址 |
+| `TEMPLATE_EDITOR_SAVE_API_URL` | `http://127.0.0.1:8080/api/template/save` | 编辑器保存模板的 API |
+| `TEMPLATE_EDITOR_LOCALE` | `zh-CN` | 编辑器默认语言 |
+| `TEMPLATE_EDITOR_MARKET` | `CN` | 编辑器默认市场 |
+| `TASK_PRODUCER_BASE_URL` | `http://127.0.0.1:18080` | 任务生产者 API 地址 |
+| `ADMIN_DEMO_DATA_ENABLED` | `true` | 是否自动补充演示门店/AP/商品/价签/模板 |
+
+如果后台端口改成 `10880`，建议同步覆盖传给 editor 的 API 地址：
+
+```bash
+SERVER_PORT=10880 \
+TEMPLATE_EDITOR_API_BASE_URL=http://127.0.0.1:10880/api \
+TEMPLATE_EDITOR_SAVE_API_URL=http://127.0.0.1:10880/api/template/save \
+./mvnw spring-boot:run
+```
+
+## 后台菜单
+
+启动并登录后，主要菜单在 `价签运营` 下：
+
+| 菜单 | 说明 |
+| --- | --- |
+| `店铺管理` | 维护门店代码、门店 ID、门店名称、组织。门店代码对应协议中的 `shop/shopcode` |
+| `商品管理` | 维护商品编码、名称、价格、促销价、规格、二维码，并绑定模板 |
+| `AP管理` | 维护 AP 编码、店内 AP 编号、状态、IP、运行信息，并绑定门店 |
+| `电子价签管理` | 维护价签 ID、型号、电量、信号、协议状态，并绑定 AP、商品、店铺 |
+| `模板管理` | 维护模板尺寸、色彩模式、设备模板编码、编辑器 JSON、静态图和动态字段 |
+
+## 行操作说明
+
+AP 管理和电子价签管理的自定义行操作分为三类，避免用户把预览和真实下发混淆：
+
+| 操作 | 说明 |
+| --- | --- |
+| `预览数据` | 只生成协议预览数据，不会真实下发 |
+| `提交任务` | 调用 `task-producer` API，进入 producer -> RabbitMQ -> consumer -> MQTT 链路 |
+| `刷新状态` | 从 producer 查询最近一次任务状态并回写后台记录 |
+
+模板管理的 `编辑模板` 行操作会打开 `eink-label-template-editor`，并带上模板参数。
+
+## 模板编辑器联动
+
+后台通过 `TemplateEditorLinkService` 生成编辑器 URL。URL 会包含：
+
+- `templateId`
+- `templateName`
+- `width`
+- `height`
+- `colorMode`
+- `locale`
+- `market`
+- `apiBase`
+- `saveApi`
+
+编辑器保存时会调用：
+
+```plain
+POST /api/template/save
+```
+
+模板读取和编辑器链接接口：
+
+```plain
+GET /api/templates/{id}
+GET /api/templates/{id}/editor-url
+POST /api/template/save
+```
+
+## MQTT 预览接口
+
+这些接口需要 Erupt 登录态，主要用于协议调试和数据检查，不代表真实下发：
 
 ```plain
 GET  /api/access-points/{id}/shop-binding-command
@@ -47,55 +186,103 @@ GET  /api/esl-labels/{id}/update-command
 POST /api/esl-labels/{labelId}/bind-product/{productId}
 ```
 
-`GET /api/esl-labels/{id}/update-command` 会根据 `电子价签 -> 商品 -> 模板` 的绑定关系生成 `wtag` 数据，并记录最近一次生成的任务 ID 和 payload。
+## 真实任务下发接口
 
-## 任务生产者联动
-
-后台保留上面的 MQTT 数据预览接口，同时新增面向 `esl-panpan-task-producer` 的任务派发接口。派发路径是：
-
-```plain
-后台业务数据 -> task-producer API -> RabbitMQ -> protocol-consumer -> MQTT
-```
-
-这些接口需要 Erupt 登录态：
+这些接口需要 Erupt 登录态，会调用 producer：
 
 ```plain
 POST /api/access-points/{id}/dispatch-shop-binding-task
 POST /api/esl-labels/{id}/dispatch-update-task
 ```
 
-默认生产者地址是 `http://127.0.0.1:18080`，可以通过环境变量覆盖：
+默认 producer 地址：
 
-```bash
-TASK_PRODUCER_BASE_URL=http://127.0.0.1:18080 ./mvnw spring-boot:run
+```plain
+http://127.0.0.1:18080
 ```
 
-价签任务要求电子价签已关联 AP、商品和模板；商品价格、商品编码、门店代码、AP 编码会按生产者 API 的必填字段校验。
+价签真实下发前必须满足：
 
-## 前端联动
+- 价签已绑定店铺。
+- 价签已绑定 AP。
+- 价签已绑定商品。
+- 商品已绑定模板。
+- 门店代码、AP 编码、商品编码、价格等 producer 必填字段完整。
 
-模板管理表单维护：
+## 演示数据
 
-- 模板 ID
-- 模板名称
-- 色彩模式：`BW`、`BWR`、`BWRY`、`E6`
-- 模板宽度
-- 模板高度
+默认启用 `ADMIN_DEMO_DATA_ENABLED=true`。第一次启动后会自动补充一套可联调数据：
 
-在模板列表点击 `编辑模板` 行按钮后，后台会打开前端编辑器，并在 URL 中传入：
+| 类型 | 示例 |
+| --- | --- |
+| 门店 | `ZH01` / 演示门店 |
+| AP | `ESLAP00000008` |
+| 商品 | `6902538004045` / 脉动维生素饮料 |
+| 模板 | `PRICEPROMO` |
+| 价签 | `6597069770841` |
 
-- `templateId`
-- `templateName`
-- `width`
-- `height`
-- `colorMode`
-- `apiBase`
-- `saveApi`
+关闭演示数据：
 
-前端编辑器会用这些参数初始化画布；如果 URL 没有这些参数，仍按编辑器现有默认流程启动。
+```bash
+ADMIN_DEMO_DATA_ENABLED=false ./mvnw spring-boot:run
+```
 
-默认前端地址是 `http://127.0.0.1:5173/`，可以通过环境变量覆盖：
+## 测试
+
+```bash
+./mvnw clean test
+```
+
+测试覆盖：
+
+- 模板编辑器链接生成。
+- 模板保存 payload。
+- MQTT preview payload。
+- producer 任务派发请求映射。
+- Erupt 菜单/按钮权限回填。
+- Erupt 前端 token 缺失补丁。
+
+## 常见问题
+
+### 价签运营菜单能看到，但打开页面是 403
+
+菜单显示和路由权限不是同一件事。请重新启动服务，让 `EruptMenuBackfill` 补齐表级权限和自定义行按钮权限；然后重新登录 `erupt/erupt`。
+
+### 提交任务失败
+
+检查 producer 是否运行：
+
+```bash
+curl http://127.0.0.1:18080/api/tasks
+```
+
+再确认：
+
+- `TASK_PRODUCER_BASE_URL` 指向正确。
+- 价签已绑定 AP、商品、模板。
+- producer 与 consumer 使用同一套 RabbitMQ。
+
+### 编辑模板打不开
+
+检查 editor 是否运行：
+
+```bash
+curl http://127.0.0.1:5173/
+```
+
+如果 editor 端口不是 `5173`，覆盖：
 
 ```bash
 TEMPLATE_EDITOR_BASE_URL=http://127.0.0.1:4173/ ./mvnw spring-boot:run
 ```
+
+### 登录页 console 出现 token split 错误
+
+本仓库已通过 `EruptTenantTokenPatchController` 对 Erupt 前端 chunk 做运行时补丁。如果升级 Erupt 后 chunk 名称变化，需要重新检查该补丁是否仍匹配。
+
+## 开发约定
+
+- `预览数据` 只用于本地协议数据检查，不应替代真实任务下发。
+- 真实下发必须走 producer API，不要在 admin 内直接投递 RabbitMQ 或 MQTT。
+- 新增 Erupt 表或行操作后，必须同步更新 `EruptMenuBackfill` 和权限测试。
+- 修改 editor URL 参数时，需要同步 editor 的 boot 参数解析逻辑和本文档。
