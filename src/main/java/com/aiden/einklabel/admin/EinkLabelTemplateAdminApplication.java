@@ -1,6 +1,7 @@
 package com.aiden.einklabel.admin;
 
 import com.aiden.einklabel.admin.config.TemplateEditorProperties;
+import com.aiden.einklabel.admin.config.TaskProducerProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -10,7 +11,7 @@ import xyz.erupt.core.annotation.EruptScan;
 @SpringBootApplication
 @EruptScan("com.aiden.einklabel.admin")
 @EntityScan(basePackages = {"com.aiden.einklabel.admin", "xyz.erupt"})
-@EnableConfigurationProperties(TemplateEditorProperties.class)
+@EnableConfigurationProperties({TemplateEditorProperties.class, TaskProducerProperties.class})
 public class EinkLabelTemplateAdminApplication {
 
     public static void main(String[] args) {

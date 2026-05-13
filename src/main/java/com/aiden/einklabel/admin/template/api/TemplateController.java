@@ -82,11 +82,7 @@ public class TemplateController {
     private TemplateRecord resolveTemplate(JsonNode payload) {
         Long id = parseLong(payload.path("templateId").asText(null));
         if (id != null) {
-            return repository.findById(id).orElseGet(() -> {
-                TemplateRecord template = new TemplateRecord();
-                template.setId(id);
-                return template;
-            });
+            return repository.findById(id).orElseGet(TemplateRecord::new);
         }
         return new TemplateRecord();
     }

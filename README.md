@@ -49,6 +49,29 @@ POST /api/esl-labels/{labelId}/bind-product/{productId}
 
 `GET /api/esl-labels/{id}/update-command` 会根据 `电子价签 -> 商品 -> 模板` 的绑定关系生成 `wtag` 数据，并记录最近一次生成的任务 ID 和 payload。
 
+## 任务生产者联动
+
+后台保留上面的 MQTT 数据预览接口，同时新增面向 `esl-panpan-task-producer` 的任务派发接口。派发路径是：
+
+```plain
+后台业务数据 -> task-producer API -> RabbitMQ -> protocol-consumer -> MQTT
+```
+
+这些接口需要 Erupt 登录态：
+
+```plain
+POST /api/access-points/{id}/dispatch-shop-binding-task
+POST /api/esl-labels/{id}/dispatch-update-task
+```
+
+默认生产者地址是 `http://127.0.0.1:18080`，可以通过环境变量覆盖：
+
+```bash
+TASK_PRODUCER_BASE_URL=http://127.0.0.1:18080 ./mvnw spring-boot:run
+```
+
+价签任务要求电子价签已关联 AP、商品和模板；商品价格、商品编码、门店代码、AP 编码会按生产者 API 的必填字段校验。
+
 ## 前端联动
 
 模板管理表单维护：

@@ -49,3 +49,6 @@ template-editor:
     - http://localhost:5174
     - http://127.0.0.1:4173
     - http://localhost:4173
+
+task-producer:
+  base-url: ${TASK_PRODUCER_BASE_URL:http://127.0.0.1:18080}

@@ -9,6 +9,8 @@ import com.aiden.einklabel.admin.mqtt.MqttCommandService;
 import com.aiden.einklabel.admin.org.OrganizationAccessService;
 import com.aiden.einklabel.admin.product.ProductRecord;
 import com.aiden.einklabel.admin.product.ProductRecordRepository;
+import com.aiden.einklabel.admin.task.TaskDispatchService;
+import com.aiden.einklabel.admin.task.TaskProducerResponse;
 import java.time.LocalDateTime;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +35,8 @@ public class MqttCommandController {
 
     private final MqttCommandService mqttCommandService;
 
+    private final TaskDispatchService taskDispatchService;
+
     private final OrganizationAccessService organizationAccessService;
 
     public MqttCommandController(
@@ -40,12 +44,14 @@ public class MqttCommandController {
             EslTagRecordRepository tagRepository,
             ProductRecordRepository productRepository,
             MqttCommandService mqttCommandService,
+            TaskDispatchService taskDispatchService,
             OrganizationAccessService organizationAccessService
     ) {
         this.accessPointRepository = accessPointRepository;
         this.tagRepository = tagRepository;
         this.productRepository = productRepository;
         this.mqttCommandService = mqttCommandService;
+        this.taskDispatchService = taskDispatchService;
         this.organizationAccessService = organizationAccessService;
     }
 
@@ -58,6 +64,15 @@ public class MqttCommandController {
         return ResponseEntity.ok(mqttCommandService.buildAccessPointShopBindingCommand(accessPoint));
     }
 
+    @PostMapping("/access-points/{id}/dispatch-shop-binding-task")
+    @EruptLoginAuth
+    public ResponseEntity<TaskProducerResponse> dispatchAccessPointShopBindingTask(@PathVariable Long id) {
+        AccessPointRecord accessPoint = accessPointRepository.findById(id)
+                .orElseThrow(() -> new EruptWebApiRuntimeException("AP不存在"));
+        organizationAccessService.assertCanAccess(accessPoint);
+        return ResponseEntity.ok(taskDispatchService.dispatchAccessPointShopBinding(accessPoint));
+    }
+
     @GetMapping("/esl-labels/{id}/update-command")
     @EruptLoginAuth
     @Transactional
@@ -68,6 +83,18 @@ public class MqttCommandController {
         MqttCommand command = mqttCommandService.buildLabelUpdateCommand(tag);
         rememberPreparedCommand(tag, command);
         return ResponseEntity.ok(command);
+    }
+
+    @PostMapping("/esl-labels/{id}/dispatch-update-task")
+    @EruptLoginAuth
+    @Transactional
+    public ResponseEntity<TaskProducerResponse> dispatchLabelUpdateTask(@PathVariable Long id) {
+        EslTagRecord tag = tagRepository.findById(id)
+                .orElseThrow(() -> new EruptWebApiRuntimeException("电子价签不存在"));
+        organizationAccessService.assertCanAccess(tag);
+        TaskProducerResponse response = taskDispatchService.dispatchLabelUpdate(tag);
+        tagRepository.save(tag);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/esl-labels/{labelId}/bind-product/{productId}")
