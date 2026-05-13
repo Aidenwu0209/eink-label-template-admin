@@ -6,6 +6,8 @@ import com.aiden.einklabel.admin.product.ProductRecord;
 import com.aiden.einklabel.admin.store.StoreRecord;
 import com.aiden.einklabel.admin.template.TemplateRecord;
 import jakarta.annotation.Resource;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.List;
 import org.springframework.stereotype.Component;
 import xyz.erupt.annotation.fun.DataProxy;
@@ -21,6 +23,9 @@ public class OrganizationScopedDataProxy implements DataProxy<OrganizationScoped
 
     @Resource
     private EruptUserService eruptUserService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public String beforeFetch(List<Condition> conditions) {
@@ -64,33 +69,45 @@ public class OrganizationScopedDataProxy implements DataProxy<OrganizationScoped
             throw new EruptWebApiRuntimeException("业务数据必须绑定组织");
         }
         if (record instanceof ProductRecord product) {
-            requireStoreInOrganization(product.getStore(), organization);
-            requireTemplateInOrganization(product.getTemplate(), organization);
+            StoreRecord store = loadStore(product.getStore());
+            TemplateRecord template = loadTemplate(product.getTemplate());
+            product.setStore(store);
+            product.setTemplate(template);
+            requireStoreInOrganization(store, organization);
+            requireTemplateInOrganization(template, organization);
         } else if (record instanceof AccessPointRecord accessPoint) {
-            requireStoreInOrganization(accessPoint.getStore(), organization);
+            StoreRecord store = loadStore(accessPoint.getStore());
+            accessPoint.setStore(store);
+            requireStoreInOrganization(store, organization);
         } else if (record instanceof EslTagRecord tag) {
-            requireStoreInOrganization(tag.getStore(), organization);
-            requireAccessPointInStore(tag.getAccessPoint(), tag.getStore(), organization);
-            requireProductInStore(tag.getProduct(), tag.getStore(), organization);
+            StoreRecord store = loadStore(tag.getStore());
+            AccessPointRecord accessPoint = loadAccessPoint(tag.getAccessPoint());
+            ProductRecord product = loadProduct(tag.getProduct());
+            tag.setStore(store);
+            tag.setAccessPoint(accessPoint);
+            tag.setProduct(product);
+            requireStoreInOrganization(store, organization);
+            requireAccessPointInStore(accessPoint, store, organization);
+            requireProductInStore(product, store, organization);
         }
     }
 
     private EruptOrg deriveOrganization(OrganizationScoped record) {
         if (record instanceof ProductRecord product && product.getStore() != null) {
-            return product.getStore().getOrganization();
+            return loadStore(product.getStore()).getOrganization();
         }
         if (record instanceof AccessPointRecord accessPoint && accessPoint.getStore() != null) {
-            return accessPoint.getStore().getOrganization();
+            return loadStore(accessPoint.getStore()).getOrganization();
         }
         if (record instanceof EslTagRecord tag) {
             if (tag.getStore() != null) {
-                return tag.getStore().getOrganization();
+                return loadStore(tag.getStore()).getOrganization();
             }
             if (tag.getProduct() != null) {
-                return tag.getProduct().getOrganization();
+                return loadProduct(tag.getProduct()).getOrganization();
             }
             if (tag.getAccessPoint() != null) {
-                return tag.getAccessPoint().getOrganization();
+                return loadAccessPoint(tag.getAccessPoint()).getOrganization();
             }
         }
         return null;
@@ -170,5 +187,49 @@ public class OrganizationScopedDataProxy implements DataProxy<OrganizationScoped
             return left.getId().equals(right.getId());
         }
         return left == right;
+    }
+
+    private StoreRecord loadStore(StoreRecord store) {
+        if (store == null || store.getId() == null) {
+            return store;
+        }
+        StoreRecord managed = entityManager.find(StoreRecord.class, store.getId());
+        if (managed == null) {
+            throw new EruptWebApiRuntimeException("店铺不存在");
+        }
+        return managed;
+    }
+
+    private TemplateRecord loadTemplate(TemplateRecord template) {
+        if (template == null || template.getId() == null) {
+            return template;
+        }
+        TemplateRecord managed = entityManager.find(TemplateRecord.class, template.getId());
+        if (managed == null) {
+            throw new EruptWebApiRuntimeException("商品模板不存在");
+        }
+        return managed;
+    }
+
+    private AccessPointRecord loadAccessPoint(AccessPointRecord accessPoint) {
+        if (accessPoint == null || accessPoint.getId() == null) {
+            return accessPoint;
+        }
+        AccessPointRecord managed = entityManager.find(AccessPointRecord.class, accessPoint.getId());
+        if (managed == null) {
+            throw new EruptWebApiRuntimeException("AP 不存在");
+        }
+        return managed;
+    }
+
+    private ProductRecord loadProduct(ProductRecord product) {
+        if (product == null || product.getId() == null) {
+            return product;
+        }
+        ProductRecord managed = entityManager.find(ProductRecord.class, product.getId());
+        if (managed == null) {
+            throw new EruptWebApiRuntimeException("商品不存在");
+        }
+        return managed;
     }
 }
