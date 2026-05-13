@@ -35,7 +35,9 @@ public class TaskDispatchService {
                 requireShopId(store),
                 requireNumber(accessPoint.getShopNo(), "店内AP编号不能为空")
         );
-        return taskProducerClient.dispatchAccessPointBind(request);
+        TaskProducerResponse response = taskProducerClient.dispatchAccessPointBind(request);
+        rememberDispatch(accessPoint, response);
+        return response;
     }
 
     public TaskProducerResponse dispatchLabelUpdate(EslTagRecord tag) {
@@ -70,6 +72,19 @@ public class TaskDispatchService {
         tag.setLastTaskId(taskId);
         tag.setLastPreparedAt(LocalDateTime.now());
         tag.setLastUpdatePayload(toJson(request));
+        rememberDispatch(tag, response);
+        return response;
+    }
+
+    public TaskProducerResponse refreshAccessPointTaskStatus(AccessPointRecord accessPoint) {
+        TaskProducerResponse response = taskProducerClient.getTask(requireTaskUuid(accessPoint.getLastProducerTaskUuid()));
+        rememberDispatch(accessPoint, response);
+        return response;
+    }
+
+    public TaskProducerResponse refreshLabelTaskStatus(EslTagRecord tag) {
+        TaskProducerResponse response = taskProducerClient.getTask(requireTaskUuid(tag.getLastProducerTaskUuid()));
+        rememberDispatch(tag, response);
         return response;
     }
 
@@ -155,6 +170,33 @@ public class TaskDispatchService {
             throw new EruptWebApiRuntimeException(message);
         }
         return value;
+    }
+
+    private UUID requireTaskUuid(String taskUuid) {
+        if (taskUuid == null || taskUuid.isBlank()) {
+            throw new EruptWebApiRuntimeException("当前记录还没有提交过生产任务");
+        }
+        try {
+            return UUID.fromString(taskUuid);
+        } catch (IllegalArgumentException ex) {
+            throw new EruptWebApiRuntimeException("最近生产任务UUID无效：" + taskUuid);
+        }
+    }
+
+    private void rememberDispatch(AccessPointRecord accessPoint, TaskProducerResponse response) {
+        if (response.taskUuid() != null) {
+            accessPoint.setLastProducerTaskUuid(response.taskUuid().toString());
+        }
+        accessPoint.setLastDispatchStatus(response.status());
+        accessPoint.setLastDispatchedAt(LocalDateTime.now());
+    }
+
+    private void rememberDispatch(EslTagRecord tag, TaskProducerResponse response) {
+        if (response.taskUuid() != null) {
+            tag.setLastProducerTaskUuid(response.taskUuid().toString());
+        }
+        tag.setLastDispatchStatus(response.status());
+        tag.setLastDispatchedAt(LocalDateTime.now());
     }
 
     private String toJson(Object value) {

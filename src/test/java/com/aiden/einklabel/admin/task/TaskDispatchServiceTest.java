@@ -9,6 +9,7 @@ import com.aiden.einklabel.admin.store.StoreRecord;
 import com.aiden.einklabel.admin.template.TemplateRecord;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class TaskDispatchServiceTest {
@@ -35,6 +36,9 @@ class TaskDispatchServiceTest {
         assertThat(client.lastAccessPointRequest.shopCode()).isEqualTo("ZH01");
         assertThat(client.lastAccessPointRequest.shopId()).isEqualTo(88L);
         assertThat(client.lastAccessPointRequest.shopNo()).isEqualTo(3);
+        assertThat(accessPoint.getLastProducerTaskUuid()).isNotBlank();
+        assertThat(accessPoint.getLastDispatchStatus()).isEqualTo("QUEUED");
+        assertThat(accessPoint.getLastDispatchedAt()).isNotNull();
     }
 
     @Test
@@ -91,6 +95,22 @@ class TaskDispatchServiceTest {
         assertThat(tag.getLastTaskId()).isEqualTo(39138);
         assertThat(tag.getLastPreparedAt()).isNotNull();
         assertThat(tag.getLastUpdatePayload()).contains("\"templateName\":\"PRICEPROMO\"");
+        assertThat(tag.getLastProducerTaskUuid()).isNotBlank();
+        assertThat(tag.getLastDispatchStatus()).isEqualTo("QUEUED");
+        assertThat(tag.getLastDispatchedAt()).isNotNull();
+    }
+
+    @Test
+    void refreshesLastTaskStatusFromProducer() {
+        EslTagRecord tag = new EslTagRecord();
+        UUID taskUuid = UUID.randomUUID();
+        tag.setLastProducerTaskUuid(taskUuid.toString());
+        client.refreshedStatus = "ESL_REPORTED";
+
+        service.refreshLabelTaskStatus(tag);
+
+        assertThat(client.lastQueriedTaskUuid).isEqualTo(taskUuid);
+        assertThat(tag.getLastDispatchStatus()).isEqualTo("ESL_REPORTED");
     }
 
     private static class FakeTaskProducerClient implements TaskProducerClient {
@@ -99,20 +119,51 @@ class TaskDispatchServiceTest {
 
         private TagUpdateTaskRequest lastTagRequest;
 
+        private UUID lastQueriedTaskUuid;
+
+        private String refreshedStatus = "QUEUED";
+
         @Override
         public TaskProducerResponse dispatchAccessPointBind(ApBindShopTaskRequest request) {
             this.lastAccessPointRequest = request;
-            return response();
+            return response(request.taskUuid(), "QUEUED");
         }
 
         @Override
         public TaskProducerResponse dispatchTagUpdate(TagUpdateTaskRequest request) {
             this.lastTagRequest = request;
-            return response();
+            return response(request.taskUuid(), "QUEUED");
         }
 
-        private TaskProducerResponse response() {
-            return new TaskProducerResponse(null, null, null, "QUEUED", null, null, 0, null, null, null, null);
+        @Override
+        public TaskProducerResponse getTask(UUID taskUuid) {
+            this.lastQueriedTaskUuid = taskUuid;
+            return response(taskUuid, refreshedStatus);
+        }
+
+        private TaskProducerResponse response(UUID taskUuid, String status) {
+            return new TaskProducerResponse(
+                    taskUuid,
+                    "TAG_UPDATE",
+                    "PANPAN",
+                    status,
+                    null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    status,
+                    null,
+                    null
+            );
         }
     }
 }

@@ -17,6 +17,15 @@ public record TaskProducerResponse(
         Instant createdAt,
         Instant updatedAt,
         Instant queuedAt,
-        Instant lastRetriedAt
+        Instant publishedAt,
+        Instant apAckedAt,
+        Instant eslReportedAt,
+        Instant failedAt,
+        Instant timeoutAt,
+        Instant lastRetriedAt,
+        Instant lastStatusEventAt,
+        String lastStatusStage,
+        String lastStatusTopic,
+        String lastStatusMessage
 ) {
 }

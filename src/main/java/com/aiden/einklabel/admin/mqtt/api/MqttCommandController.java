@@ -66,11 +66,14 @@ public class MqttCommandController {
 
     @PostMapping("/access-points/{id}/dispatch-shop-binding-task")
     @EruptLoginAuth
+    @Transactional
     public ResponseEntity<TaskProducerResponse> dispatchAccessPointShopBindingTask(@PathVariable Long id) {
         AccessPointRecord accessPoint = accessPointRepository.findById(id)
                 .orElseThrow(() -> new EruptWebApiRuntimeException("AP不存在"));
         organizationAccessService.assertCanAccess(accessPoint);
-        return ResponseEntity.ok(taskDispatchService.dispatchAccessPointShopBinding(accessPoint));
+        TaskProducerResponse response = taskDispatchService.dispatchAccessPointShopBinding(accessPoint);
+        accessPointRepository.save(accessPoint);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/esl-labels/{id}/update-command")

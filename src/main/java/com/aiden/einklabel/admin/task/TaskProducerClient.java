@@ -5,4 +5,6 @@ public interface TaskProducerClient {
     TaskProducerResponse dispatchAccessPointBind(ApBindShopTaskRequest request);
 
     TaskProducerResponse dispatchTagUpdate(TagUpdateTaskRequest request);
+
+    TaskProducerResponse getTask(java.util.UUID taskUuid);
 }

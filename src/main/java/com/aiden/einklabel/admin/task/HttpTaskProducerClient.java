@@ -7,6 +7,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import xyz.erupt.core.exception.EruptWebApiRuntimeException;
+import java.util.UUID;
 
 @Service
 public class HttpTaskProducerClient implements TaskProducerClient {
@@ -27,6 +28,26 @@ public class HttpTaskProducerClient implements TaskProducerClient {
     @Override
     public TaskProducerResponse dispatchTagUpdate(TagUpdateTaskRequest request) {
         return post("/api/panpan/tags/update", request);
+    }
+
+    @Override
+    public TaskProducerResponse getTask(UUID taskUuid) {
+        try {
+            TaskProducerResponse response = restClient.get()
+                    .uri("/api/tasks/{taskUuid}", taskUuid)
+                    .retrieve()
+                    .body(TaskProducerResponse.class);
+            if (response == null) {
+                throw new EruptWebApiRuntimeException("任务生产者返回空响应");
+            }
+            return response;
+        } catch (RestClientResponseException ex) {
+            throw new EruptWebApiRuntimeException(
+                    "任务生产者查询失败：" + ex.getStatusCode() + " " + ex.getResponseBodyAsString()
+            );
+        } catch (RestClientException ex) {
+            throw new EruptWebApiRuntimeException("任务生产者不可用：" + ex.getMessage());
+        }
     }
 
     private TaskProducerResponse post(String path, Object request) {

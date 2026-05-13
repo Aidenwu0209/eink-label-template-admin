@@ -1,6 +1,8 @@
 package com.aiden.einklabel.admin.ap;
 
 import com.aiden.einklabel.admin.ap.operation.OpenAccessPointShopCommandOperation;
+import com.aiden.einklabel.admin.ap.operation.RefreshAccessPointTaskStatusOperation;
+import com.aiden.einklabel.admin.ap.operation.SubmitAccessPointShopTaskOperation;
 import com.aiden.einklabel.admin.org.OrganizationScopedDataProxy;
 import com.aiden.einklabel.admin.org.OrganizationScopedRecord;
 import com.aiden.einklabel.admin.store.StoreRecord;
@@ -34,13 +36,30 @@ import xyz.erupt.annotation.sub_field.sub_edit.VL;
         power = @Power(export = true),
         orderBy = "AccessPointRecord.updateTime desc",
         dataProxy = OrganizationScopedDataProxy.class,
-        rowOperation = @RowOperation(
-                code = "open_shop_command",
-                title = "门店配置数据",
-                icon = "fa fa-exchange",
-                mode = RowOperation.Mode.SINGLE,
-                operationHandler = OpenAccessPointShopCommandOperation.class
-        )
+        rowOperation = {
+                @RowOperation(
+                        code = "preview_shop_command",
+                        title = "预览门店配置数据",
+                        icon = "fa fa-eye",
+                        mode = RowOperation.Mode.SINGLE,
+                        operationHandler = OpenAccessPointShopCommandOperation.class
+                ),
+                @RowOperation(
+                        code = "submit_shop_task",
+                        title = "提交门店配置任务",
+                        icon = "fa fa-paper-plane",
+                        mode = RowOperation.Mode.SINGLE,
+                        callHint = "确认提交真实门店配置任务？这会通过 producer 下发到 RabbitMQ。",
+                        operationHandler = SubmitAccessPointShopTaskOperation.class
+                ),
+                @RowOperation(
+                        code = "refresh_shop_task_status",
+                        title = "刷新任务状态",
+                        icon = "fa fa-refresh",
+                        mode = RowOperation.Mode.SINGLE,
+                        operationHandler = RefreshAccessPointTaskStatusOperation.class
+                )
+        }
 )
 public class AccessPointRecord extends OrganizationScopedRecord {
 
@@ -164,6 +183,26 @@ public class AccessPointRecord extends OrganizationScopedRecord {
     )
     private String remark;
 
+    @Column(name = "last_producer_task_uuid", length = 36)
+    @EruptField(
+            views = @View(title = "最近生产任务", show = false, width = "240px"),
+            edit = @Edit(title = "最近生产任务UUID")
+    )
+    private String lastProducerTaskUuid;
+
+    @Column(name = "last_dispatch_status", length = 32)
+    @EruptField(
+            views = @View(title = "下发状态", sortable = true, width = "110px"),
+            edit = @Edit(title = "最近下发状态")
+    )
+    private String lastDispatchStatus;
+
+    @EruptField(
+            views = @View(title = "最后提交", sortable = true, width = "160px"),
+            edit = @Edit(title = "最后提交任务时间")
+    )
+    private LocalDateTime lastDispatchedAt;
+
     @Override
     protected void applyDefaults() {
         if (this.shopNo == null) {
@@ -284,5 +323,29 @@ public class AccessPointRecord extends OrganizationScopedRecord {
 
     public void setRemark(String remark) {
         this.remark = remark;
+    }
+
+    public String getLastProducerTaskUuid() {
+        return lastProducerTaskUuid;
+    }
+
+    public void setLastProducerTaskUuid(String lastProducerTaskUuid) {
+        this.lastProducerTaskUuid = lastProducerTaskUuid;
+    }
+
+    public String getLastDispatchStatus() {
+        return lastDispatchStatus;
+    }
+
+    public void setLastDispatchStatus(String lastDispatchStatus) {
+        this.lastDispatchStatus = lastDispatchStatus;
+    }
+
+    public LocalDateTime getLastDispatchedAt() {
+        return lastDispatchedAt;
+    }
+
+    public void setLastDispatchedAt(LocalDateTime lastDispatchedAt) {
+        this.lastDispatchedAt = lastDispatchedAt;
     }
 }
