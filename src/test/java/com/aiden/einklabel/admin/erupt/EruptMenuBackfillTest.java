@@ -37,6 +37,9 @@ class EruptMenuBackfillTest {
             assertThat(menuCount(jdbcTemplate, "AccessPointRecord")).isOne();
             assertThat(menuCount(jdbcTemplate, "EslTagRecord")).isOne();
             assertThat(menuCount(jdbcTemplate, "EslTagRecord@EXPORT")).isOne();
+            assertThat(menuCount(jdbcTemplate, "EslTagRecord@submit_label_update_task")).isOne();
+            assertThat(menuCount(jdbcTemplate, "AccessPointRecord@submit_shop_task")).isOne();
+            assertThat(menuCount(jdbcTemplate, "TemplateRecord@open_editor")).isOne();
             assertThat(parentCode(jdbcTemplate, "EslTagRecord")).isEqualTo("$esl-operation");
             assertThat(parentCode(jdbcTemplate, "TemplateRecord")).isEqualTo("$esl-operation");
         } finally {

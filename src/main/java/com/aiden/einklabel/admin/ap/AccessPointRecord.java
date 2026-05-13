@@ -39,14 +39,16 @@ import xyz.erupt.annotation.sub_field.sub_edit.VL;
         rowOperation = {
                 @RowOperation(
                         code = "preview_shop_command",
-                        title = "预览门店配置数据",
+                        title = "预览数据",
+                        tip = "只查看协议数据，不会真实下发",
                         icon = "fa fa-eye",
                         mode = RowOperation.Mode.SINGLE,
                         operationHandler = OpenAccessPointShopCommandOperation.class
                 ),
                 @RowOperation(
                         code = "submit_shop_task",
-                        title = "提交门店配置任务",
+                        title = "提交任务",
+                        tip = "真实下发到 producer / RabbitMQ / consumer",
                         icon = "fa fa-paper-plane",
                         mode = RowOperation.Mode.SINGLE,
                         callHint = "确认提交真实门店配置任务？这会通过 producer 下发到 RabbitMQ。",
@@ -54,7 +56,8 @@ import xyz.erupt.annotation.sub_field.sub_edit.VL;
                 ),
                 @RowOperation(
                         code = "refresh_shop_task_status",
-                        title = "刷新任务状态",
+                        title = "刷新状态",
+                        tip = "从 producer 查询最近一次任务状态",
                         icon = "fa fa-refresh",
                         mode = RowOperation.Mode.SINGLE,
                         operationHandler = RefreshAccessPointTaskStatusOperation.class

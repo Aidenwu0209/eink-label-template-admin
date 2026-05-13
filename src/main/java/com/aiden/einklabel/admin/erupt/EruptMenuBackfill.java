@@ -1,6 +1,7 @@
 package com.aiden.einklabel.admin.erupt;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -27,6 +28,21 @@ public class EruptMenuBackfill implements ApplicationRunner {
             new ButtonMenu("EXPORT", "EXPORT", 40),
             new ButtonMenu("VIEW_DETAIL", "DETAIL", 50)
     );
+    private static final Map<String, List<ButtonMenu>> ROW_OPERATION_MENUS = Map.of(
+            "AccessPointRecord", List.of(
+                    new ButtonMenu("preview_shop_command", "预览数据", 60),
+                    new ButtonMenu("submit_shop_task", "提交任务", 70),
+                    new ButtonMenu("refresh_shop_task_status", "刷新状态", 80)
+            ),
+            "EslTagRecord", List.of(
+                    new ButtonMenu("preview_label_update_command", "预览数据", 60),
+                    new ButtonMenu("submit_label_update_task", "提交任务", 70),
+                    new ButtonMenu("refresh_label_task_status", "刷新状态", 80)
+            ),
+            "TemplateRecord", List.of(
+                    new ButtonMenu("open_editor", "编辑模板", 60)
+            )
+    );
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -45,6 +61,9 @@ public class EruptMenuBackfill implements ApplicationRunner {
         for (TableMenu table : TABLE_MENUS) {
             Long tableId = ensureTableMenu(table, rootId);
             for (ButtonMenu button : BUTTON_MENUS) {
+                ensureButtonMenu(table.code(), button, tableId);
+            }
+            for (ButtonMenu button : ROW_OPERATION_MENUS.getOrDefault(table.code(), List.of())) {
                 ensureButtonMenu(table.code(), button, tableId);
             }
         }

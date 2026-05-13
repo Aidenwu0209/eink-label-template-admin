@@ -52,3 +52,7 @@ template-editor:
 
 task-producer:
   base-url: ${TASK_PRODUCER_BASE_URL:http://127.0.0.1:18080}
+
+admin:
+  demo-data:
+    enabled: ${ADMIN_DEMO_DATA_ENABLED:true}

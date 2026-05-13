@@ -41,14 +41,16 @@ import xyz.erupt.annotation.sub_field.sub_edit.Search;
         rowOperation = {
                 @RowOperation(
                         code = "preview_label_update_command",
-                        title = "预览商品下发数据",
+                        title = "预览数据",
+                        tip = "只查看协议数据，不会真实下发",
                         icon = "fa fa-eye",
                         mode = RowOperation.Mode.SINGLE,
                         operationHandler = OpenEslTagUpdateCommandOperation.class
                 ),
                 @RowOperation(
                         code = "submit_label_update_task",
-                        title = "提交商品更新任务",
+                        title = "提交任务",
+                        tip = "真实下发到 producer / RabbitMQ / consumer",
                         icon = "fa fa-paper-plane",
                         mode = RowOperation.Mode.SINGLE,
                         callHint = "确认提交真实商品更新任务？这会通过 producer 下发到 RabbitMQ。",
@@ -56,7 +58,8 @@ import xyz.erupt.annotation.sub_field.sub_edit.Search;
                 ),
                 @RowOperation(
                         code = "refresh_label_task_status",
-                        title = "刷新任务状态",
+                        title = "刷新状态",
+                        tip = "从 producer 查询最近一次任务状态",
                         icon = "fa fa-refresh",
                         mode = RowOperation.Mode.SINGLE,
                         operationHandler = RefreshEslTagTaskStatusOperation.class
